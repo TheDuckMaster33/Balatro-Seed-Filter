@@ -1,0 +1,13 @@
+{
+    "id": "SeedFilter", 
+    "name": "Seed Filter", 
+    "author": ["TheDuckMaster"],
+    "description": "A mod to filter for seeds which meet predetermined conditions.", 
+    "prefix": "SeedFilter", 
+    "badge_colour": "fc8048",
+	"dependencies": [
+		"Steamodded (>=1.0.0~ALPHA-1404b)"
+	],
+	"main_file": "SeedFilter.lua",
+	"version": "1.0.0"
+}
