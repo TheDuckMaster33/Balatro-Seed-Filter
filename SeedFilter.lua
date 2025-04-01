@@ -22,7 +22,7 @@ end
 
 --- Find the next tarot card in the seed sequence
 function find_next_tarot_card(resample_count)
-    if pseudorandom('soul_' .. 'Tarot' .. G.GAME.round_resets.ante) > 0.997 then
+    if resample_count == 0 and pseudorandom('soul_' .. 'Tarot' .. G.GAME.round_resets.ante) > 0.997 then
         return 'Soul'
     else
         local _pool, _pool_key = get_current_pool('Tarot', nil, nil, 'ar1')
@@ -83,11 +83,11 @@ end
 
 function get_num_tags_to_analyse(filter_criteria)
     if filter_criteria.legendary then
-        if filter_criteria.by_ante then
-            if filter_criteria.by_ante == 0 then
+        if filter_criteria.legendary.by_ante then
+            if filter_criteria.legendary.by_ante == 0 then
                 return 1
             else
-                return filter_criteria.by_ante * 2
+                return filter_criteria.legendary.by_ante * 2
             end
         else
             return 1
@@ -97,8 +97,8 @@ end
 
 function get_num_vouchers_to_analyse(filter_criteria)
     if filter_criteria.voucher then
-        if filter_criteria.by_ante then
-            return math.max(1, filter_criteria.by_ante)
+        if filter_criteria.voucher.by_ante then
+            return math.max(1, filter_criteria.voucher.by_ante)
         else
             return 1
         end
@@ -106,23 +106,30 @@ function get_num_vouchers_to_analyse(filter_criteria)
 end
 
 function is_legendary_found(legendary, num_tags_to_analyse)
-    for _ = 1, num_tags_to_analyse do
+
+    for tag_num = 1, num_tags_to_analyse do
+
+        G.GAME.round_resets.ante = math.floor((tag_num + 1) / 2)
 
         local tag = get_next_tag_key()
 
         if tag == "tag_charm" then
-
             if found_legendary_in_arcana(legendary) then
+                print(tag_num)
+                G.GAME.round_resets.ante = 1
                 return true
             end
         end
     end
 
+    G.GAME.round_resets.ante = 1
     return false
 end
 
 function is_voucher_found(voucher, num_vouchers_to_analyse)
-    for _ = 1, num_vouchers_to_analyse do
+    for voucher_num = 1, num_vouchers_to_analyse do
+
+        G.GAME.round_resets.ante = voucher_num
 
         local voucher_name = nil 
 
@@ -135,10 +142,12 @@ function is_voucher_found(voucher, num_vouchers_to_analyse)
         local voucher_key = get_next_voucher_key()
 
         if voucher_name == voucher_key then
+            G.GAME.round_resets.ante = 1
             return true
         end
     end
 
+    G.GAME.round_resets.ante = 1
     return false
 end
 
@@ -178,67 +187,15 @@ function generate_filtered_starting_seed(filter_criteria)
             return seed
         until true
     end 
-
-    -- first_tag = get_next_tag_key()
-    -- second_tag = get_next_tag_key()
-
-
-    -- if filter_criteria.legendary then
-    --     first_tag = get_next_tag_key()
-    --     second_tag = get_next_tag_key()
-
-    --     if first_tag == "tag_charm" then
-    --         local tarot_cards = find_tarot_cards_in_next_mega_arcana_pack()
-    --         if found_legendary(filter_criteria.legendary) then
-    --             return seed
-    --         end
-    --     end
-
-    --     if second_tag == "tag_charm" then
-    --         local tarot_cards = find_tarot_cards_in_next_mega_arcana_pack()
-    --         if found_legendary(filter_criteria.legendary) then
-    --             return seed
-    --         end
-    --     end
-    -- end
-
-
-    -- first_tag = get_next_tag_key()
-    -- second_tag = get_next_tag_key()
-
-    -- if first_tag == "tag_charm" then
-    --     local tarot_cards = find_tarot_cards_in_next_mega_arcana_pack()
-    --     if found_legendary()
-
-    -- if first_tag == "tag_charm" then
-    --     local tarot_cards = find_tarot_cards_in_next_mega_arcana_pack()
-
-    --     if tarot_cards['Soul'] then
-    --         local legendary_joker = find_next_legendary_joker()
-
-    --         if legendary_joker == "Triboulet" then
-    --             return seed
-    --         end
-    --     end
-    -- end
-
-    -- if second_tag == "tag_charm" then
-    --     local tarot_cards = find_tarot_cards_in_next_mega_arcana_pack()
-
-    --     if tarot_cards['Soul'] then
-    --         print(find_next_legendary_joker())
-    --         return seed
-    --     end
-    -- end
-
-    -- if second_tag == "tag_charm" then
-    --     tarot_cards = find_tarot_cards_in_next_mega_arcana_pack()
-    -- end
 end
 
 local orginal_game_start_run = Game.start_run
 
-local filter_criteria = { legendary = { name = "Triboulet", by_ante = 0 }, voucher = { name = "Overstock", by_ante = 1 } }
+local filter_criteria = 
+{ legendary = { name = "Triboulet", by_ante = 2 },
+--   voucher = { name = "Overstock", by_ante = 1 },
+--   joker = { name = "Blueprint", by_ante = 1 }
+}
 
 function Game:start_run(args)
     G.SETTINGS.tutorial_progress = nil
