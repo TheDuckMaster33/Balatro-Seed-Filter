@@ -27,6 +27,12 @@ function find_next_card(pack_type, pack_type_seed_id, resample_count)
         end
     end
 
+    if pack_type == 'Spectral' then
+        if resample_count == 0 and pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
+            return 'Black Hole'
+        end
+    end
+
     local rarity = nil
     local center = nil
 
@@ -67,139 +73,45 @@ function find_all_cards_in_next_pack(pack_type, pack_size, pack_type_seed_id)
     return cards_in_pack
 end
 
-function is_legendary_in_pack(pack_type, pack_size)
+function find_legendary_in_pack(pack_type, pack_size)
+    local legendary = nil
+
     for _ = 1, pack_size do
         if pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
-            return true
+            legendary = find_next_card('Joker', 'sou', 0)
         end
     end
 
-    return false
+    return legendary
 end
-
-function find_legendary_in_arcana()
-    if is_legendary_in_pack('Tarot', 5) then
-        return find_next_card('Joker', 'sou', 0)
-    end
-
-    return nil
-end
-
--- local _pool, _pool_key = get_current_pool('Joker', nil, true, 'sou')
-
-
-
--- function find_tarot_cards_in_next_mega_arcana_pack()
---     local tarot_cards_in_pack = {}
---     local resample_count = 0
-
---     for _ = 1, 5 do
---         resample_count = 0
-
---         while true do
---             tarot_card = find_next_tarot_card(resample_count)
-
---             if tarot_cards_in_pack[tarot_card] == nil then
---                 tarot_cards_in_pack[tarot_card] = true
---                 break
---             end
-
---             resample_count = resample_count + 1
---         end
---     end
-
---     return tarot_cards_in_pack
--- end
-
-
-
-
-
-
--- --- Find the next tarot card in the seed sequence
--- function find_next_tarot_card(resample_count)
---     if resample_count == 0 and pseudorandom('soul_' .. 'Tarot' .. G.GAME.round_resets.ante) > 0.997 then
---         return 'Soul'
---     else
---         local _pool, _pool_key = get_current_pool('Tarot', nil, nil, 'ar1')
-
---         if resample_count > 0 then
---             center = pseudorandom_element(_pool, pseudoseed(_pool_key .. '_resample' .. (resample_count + 1))) --
---         else
---             center = pseudorandom_element(_pool, pseudoseed(_pool_key))
---         end
-
---         return G.P_CENTERS[center].name
---     end
--- end
-
--- -- Find the next legendary joker in the seed sequence
--- function find_next_legendary_joker()
---     local _pool, _pool_key = get_current_pool('Joker', nil, true, 'sou')
---     center = pseudorandom_element(_pool, pseudoseed(_pool_key))
---     return G.P_CENTERS[center].name
--- end
-
--- Return all of the tarot cards in the next mega arcana pack (5 cards)
-
-
-
--- function get_num_tags_to_analyse(filter_criteria)
---     if filter_criteria.legendary then
---         if filter_criteria.legendary.by_ante then
---             if filter_criteria.legendary.by_ante == 0 then
---                 return 1
---             else
---                 return filter_criteria.legendary.by_ante * 2
---             end
---         else
---             return 1
---         end
---     end
--- end
-
--- function get_num_vouchers_to_analyse(filter_criteria)
---     if filter_criteria.voucher then
---         if filter_criteria.voucher.by_ante then
---             return math.max(1, filter_criteria.voucher.by_ante)
---         else
---             return 1
---         end
---     end
--- end
 
 function are_legendaries_found(legendaries, legendaries_min_tag, legendaries_max_tag)
-    -- local max_tags_to_analyse = ante_to_tag_num(legendaries_max_ante)
-
     local remaining_legendaries = {}
     for k, v in pairs(legendaries) do remaining_legendaries[k] = v end
 
     for tag_num = 1, legendaries_max_tag do
-        local ante = math.floor((tag_num + 1) / 2) -- tag_num_to_ante(tag_num)
+        local ante = math.floor((tag_num + 1) / 2)
 
         G.GAME.round_resets.ante = ante
 
-        -- local adjusted_ante = ante
-
-        -- if tag_num == 1 then
-        --     adjusted_ante = 0
-        -- end
-
         local tag = get_next_tag_key()
 
-        if tag_num >= legendaries_min_tag and tag == "tag_charm" then
-            local found_legendary = find_legendary_in_arcana()
+        if tag_num >= legendaries_min_tag then
+            local found_legendary = nil
+
+            if tag == "tag_charm" then
+                found_legendary = find_legendary_in_pack('Tarot', 5)
+            elseif tag == "tag_ethereal" then
+                found_legendary = find_legendary_in_pack('Spectral', 2)
+            end
 
             if found_legendary then
-                print(#remaining_legendaries)
-                for key, legendary in ipairs(remaining_legendaries) do
+                for key, legendary in pairs(remaining_legendaries) do
                     local is_legendary_found = true
 
-                    if legendary['name'] and legendary['name'] ~= found_legendary then
-                        is_legendary_found = false
-                    elseif tag_num < legendary['at_least_tag'] then
-                        is_legendary_found = false
-                    elseif tag_num > legendary['at_most_tag'] then
+                    if legendary['name'] and legendary['name'] ~= found_legendary
+                        or tag_num < legendary['at_least_tag']
+                        or tag_num > legendary['at_most_tag'] then
                         is_legendary_found = false
                     end
 
@@ -214,6 +126,42 @@ function are_legendaries_found(legendaries, legendaries_min_tag, legendaries_max
                         break
                     end
                 end
+            end
+        end
+    end
+
+    G.GAME.round_resets.ante = 1
+    return false
+end
+
+function are_vouchers_found(vouchers, num_vouchers_to_analyse)
+    local remaining_vouchers = {}
+    for k, v in pairs(vouchers) do remaining_vouchers[k] = v end
+
+    for voucher_num = 1, num_vouchers_to_analyse do
+        G.GAME.round_resets.ante = voucher_num
+
+        local voucher_key = get_next_voucher_key()
+
+        for key, voucher in pairs(remaining_vouchers) do
+            local is_voucher_found = true
+
+            if voucher_key ~= voucher['name']
+                or voucher_num < voucher['at_least_ante']
+                or voucher_num > voucher['at_most_ante'] then
+                is_voucher_found = false
+            end
+
+            if is_voucher_found then
+                remaining_vouchers[key] = nil
+                G.GAME.used_vouchers[voucher_key] = true
+
+                if #remaining_vouchers == 0 then
+                    G.GAME.round_resets.ante = 1
+                    return true
+                end
+
+                break
             end
         end
     end
@@ -241,58 +189,7 @@ end
 --     return false
 -- end
 
--- function is_voucher_found(voucher, num_vouchers_to_analyse)
---     for voucher_num = 1, num_vouchers_to_analyse do
---         G.GAME.round_resets.ante = voucher_num
-
---         local voucher_name = nil
-
---         if voucher.name == "Overstock" then
---             voucher_name = "v_overstock_norm"
---         else
---             voucher_name = "v_" .. string.gsub(string.lower(voucher.name), " ", "_")
---         end
-
---         local voucher_key = get_next_voucher_key()
-
---         if voucher_name == voucher_key then
---             print(voucher_num)
---             G.GAME.round_resets.ante = 1
---             return true
---         end
---     end
-
---     G.GAME.round_resets.ante = 1
---     return false
--- end
-
--- function ante_to_tag_num(ante)
---     if ante then
---         return ante * 2
---     else
---         return 1
---     end
--- end
-
--- function tag_num_to_ante(tag_num)
---     return math.floor((tag_num + 1) / 2)
--- end
-
-function ante_to_num_vouchers(ante)
-    if ante then
-        return ante
-    else
-        return 1
-    end
-end
-
--- Generate a new seed according to the filter criteria
-function generate_filtered_starting_seed(filter_criteria)
-    local seed = nil
-    local crack_count = 0
-
-    G.GAME = G:init_game_object()
-
+function get_legendary_list_from_filter_criteria(filter_criteria)
     local legendaries = {}
     local legendaries_max_tag = nil
     local legendaries_min_tag = nil
@@ -301,17 +198,14 @@ function generate_filtered_starting_seed(filter_criteria)
         for _, legendary in ipairs(filter_criteria.legendary) do
             local name = legendary['name']
             local at_least_ante = legendary['at_least_ante'] or 0
-            local at_most_ante = legendary['at_most_ante'] or math.maxinteger
+            local at_most_ante = legendary['at_most_ante'] or at_least_ante
 
             local at_least_tag = at_least_ante == 0 and 1 or (at_least_ante * 2) - 1
             local at_most_tag = at_most_ante == 0 and 1 or (at_most_ante * 2)
 
-            print(at_least_tag)
-            print(at_most_tag)
-
             assert(at_least_tag <= at_most_tag)
 
-            legendaries[#legendaries + 1] = ({ name = name, at_least_tag = at_least_tag, at_most_tag = at_most_tag })
+            legendaries[#legendaries + 1] = { name = name, at_least_tag = at_least_tag, at_most_tag = at_most_tag }
 
             if legendaries_max_tag == nil or legendaries_min_tag == nil then
                 legendaries_max_tag = at_most_tag
@@ -329,12 +223,52 @@ function generate_filtered_starting_seed(filter_criteria)
 
     table.sort(legendaries, sort_by_at_most_tag)
 
-    -- local num_tags_to_analyse = get_num_tags_to_analyse(filter_criteria)
-    -- local num_vouchers_to_analyse = get_num_vouchers_to_analyse(filter_criteria)
+    return legendaries, legendaries_max_tag, legendaries_min_tag
+end
 
+function get_voucher_list_from_filter_criteria(filter_criteria)
+    local vouchers = {}
+    local max_voucher_ante = nil
+
+    if filter_criteria.voucher then
+        for _, voucher in ipairs(filter_criteria.voucher) do
+            local name = voucher['name']
+
+            if name == "Overstock" then
+                name = "v_overstock_norm"
+            elseif name == "Director's Cut" then
+                name = "v_directors_cut"
+            else
+                name = "v_" .. string.gsub(string.lower(name), " ", "_")
+            end
+
+            local at_least_ante = voucher['at_least_ante'] or 1
+            local at_most_ante = voucher['at_most_ante'] or at_least_ante
+
+            vouchers[#vouchers + 1] = { name = name, at_least_ante = at_least_ante, at_most_ante = at_most_ante }
+
+            if max_voucher_ante == nil then
+                max_voucher_ante = at_most_ante
+            else
+                max_voucher_ante = math.max(max_voucher_ante, at_most_ante)
+            end
+        end
+    end
+
+    return vouchers, max_voucher_ante
+end
+
+-- Generate a new seed according to the filter criteria
+function generate_filtered_starting_seed(filter_criteria)
+    local seed = nil
+    local crack_count = 0
+
+    G.GAME = G:init_game_object()
+
+    legendaries, legendaries_max_tag, legendaries_min_tag = get_legendary_list_from_filter_criteria(filter_criteria)
+    vouchers, max_voucher_ante = get_voucher_list_from_filter_criteria(filter_criteria)
 
     while true do
-
         repeat
             crack_count = crack_count + 1
             -- print(crack_count)
@@ -344,6 +278,7 @@ function generate_filtered_starting_seed(filter_criteria)
             G.GAME.pseudorandom = {}
             G.GAME.pseudorandom.seed = seed
             G.GAME.pseudorandom.hashed_seed = pseudohash(seed)
+            G.GAME.used_vouchers = {}
 
             if #legendaries > 0 then
                 if not are_legendaries_found(legendaries, legendaries_min_tag, legendaries_max_tag) then
@@ -351,11 +286,11 @@ function generate_filtered_starting_seed(filter_criteria)
                 end
             end
 
-            -- if filter_criteria.voucher then
-            --     if not is_voucher_found(filter_criteria.voucher, num_vouchers_to_analyse) then
-            --         break
-            --     end
-            -- end
+            if #vouchers > 0 then
+                if not are_vouchers_found(vouchers, max_voucher_ante) then
+                    break
+                end
+            end
 
             return seed
         until true
@@ -365,10 +300,9 @@ end
 local orginal_game_start_run = Game.start_run
 
 local filter_criteria = {
-    legendary = { { at_most_ante = 0 } },
-
+    legendary = { { at_most_ante = 3 }, { at_most_ante = 3 } },
     -- legendary = { { name = "Triboulet", at_most_ante = 0 } },
-    --   voucher = { name = "Overstock", by_ante = 1 },
+    -- voucher = { { name = "Overstock", at_most_ante = 1 }, { name = "Telescope", at_most_ante = 2 } },
     -- joker = { name = "Blueprint", by_ante = 1 }
 }
 
