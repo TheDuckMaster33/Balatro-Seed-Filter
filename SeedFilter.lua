@@ -109,7 +109,7 @@ function are_legendaries_found(legendaries, legendaries_min_tag, legendaries_max
                 for key, legendary in pairs(remaining_legendaries) do
                     local is_legendary_found = true
 
-                    if legendary['name'] and legendary['name'] ~= found_legendary
+                    if legendary['name'] ~= "Any" and legendary['name'] ~= found_legendary
                         or tag_num < legendary['at_least_tag']
                         or tag_num > legendary['at_most_tag'] then
                         is_legendary_found = false
@@ -147,8 +147,8 @@ function are_vouchers_found(vouchers, num_vouchers_to_analyse)
             local is_voucher_found = true
 
             if voucher_key ~= voucher['name']
-                or voucher_num < voucher['at_least_ante']
-                or voucher_num > voucher['at_most_ante'] then
+                or voucher_num < voucher['min_ante']
+                or voucher_num > voucher['max_ante'] then
                 is_voucher_found = false
             end
 
@@ -197,11 +197,11 @@ function get_legendary_list_from_filter_criteria(filter_criteria)
     if filter_criteria.legendary then
         for _, legendary in ipairs(filter_criteria.legendary) do
             local name = legendary['name']
-            local at_least_ante = legendary['at_least_ante'] or 0
-            local at_most_ante = legendary['at_most_ante'] or at_least_ante
+            local min_ante = legendary['min_ante'] or 0
+            local max_ante = legendary['max_ante'] or min_ante
 
-            local at_least_tag = at_least_ante == 0 and 1 or (at_least_ante * 2) - 1
-            local at_most_tag = at_most_ante == 0 and 1 or (at_most_ante * 2)
+            local at_least_tag = min_ante == 0 and 1 or (min_ante * 2) - 1
+            local at_most_tag = max_ante == 0 and 1 or (max_ante * 2)
 
             assert(at_least_tag <= at_most_tag)
 
@@ -242,15 +242,15 @@ function get_voucher_list_from_filter_criteria(filter_criteria)
                 name = "v_" .. string.gsub(string.lower(name), " ", "_")
             end
 
-            local at_least_ante = voucher['at_least_ante'] or 1
-            local at_most_ante = voucher['at_most_ante'] or at_least_ante
+            local min_ante = voucher['min_ante'] or 1
+            local max_ante = voucher['max_ante'] or min_ante
 
-            vouchers[#vouchers + 1] = { name = name, at_least_ante = at_least_ante, at_most_ante = at_most_ante }
+            vouchers[#vouchers + 1] = { name = name, min_ante = min_ante, max_ante = max_ante }
 
             if max_voucher_ante == nil then
-                max_voucher_ante = at_most_ante
+                max_voucher_ante = max_ante
             else
-                max_voucher_ante = math.max(max_voucher_ante, at_most_ante)
+                max_voucher_ante = math.max(max_voucher_ante, max_ante)
             end
         end
     end
@@ -265,8 +265,9 @@ function generate_filtered_starting_seed(filter_criteria)
 
     G.GAME = G:init_game_object()
 
-    legendaries, legendaries_max_tag, legendaries_min_tag = get_legendary_list_from_filter_criteria(filter_criteria)
-    vouchers, max_voucher_ante = get_voucher_list_from_filter_criteria(filter_criteria)
+    local legendaries, legendaries_max_tag, legendaries_min_tag = get_legendary_list_from_filter_criteria(
+    filter_criteria)
+    local vouchers, max_voucher_ante = get_voucher_list_from_filter_criteria(filter_criteria)
 
     while true do
         repeat
@@ -300,13 +301,127 @@ end
 local orginal_game_start_run = Game.start_run
 
 local filter_criteria = {
-    legendary = { { at_most_ante = 3 }, { at_most_ante = 3 } },
-    -- legendary = { { name = "Triboulet", at_most_ante = 0 } },
-    -- voucher = { { name = "Overstock", at_most_ante = 1 }, { name = "Telescope", at_most_ante = 2 } },
+    legendary = { { max_ante = 3 }, { max_ante = 3 } },
+    -- legendary = { { name = "Triboulet", max_ante = 0 } },
+    -- voucher = { { name = "Overstock", max_ante = 1 }, { name = "Telescope", max_ante = 2 } },
     -- joker = { name = "Blueprint", by_ante = 1 }
 }
 
+-- function query_yaml_to_object()
+--     query = [[
+--         hello
+--         world
+--         ]]
+
+
+-- end
+
+local function parse_yaml(yaml_string)
+    local filter_criteria = {}
+    local current_header = nil
+
+    for line in yaml_string:gmatch("[^\r\n]+") do
+        local empty = line:match("^%s*$") or line:match("^%s*//.*$")
+        local header =
+            line:match("^%s*([^-:]+):%s*$") or
+            line:match("^%s*([^-:]+):%s*//.*$")
+
+        local key, value = line:match("^%s*-%s*([^:]+)%s*:%s*(.+)%s*$")
+        if key == nil then
+            line:match("^%s*-%s*([^:]+)%s*:%s*(.+)%s*//.*$")
+        end
+
+        if header and empty or key and empty or header and key then
+            print("Query invalid") -- Should never occur according to our regex definitions
+            return nil
+        end
+
+        if not (empty or header or key or value) then
+            print("Query line invalid:\n" .. line)
+            print("\nPlease add a query header or item field. See documentation for more details.")
+            return nil
+        end
+
+        if header then
+            if not (header == "legendary" or header == "voucher") then
+                print("Query line invalid:\n" .. line)
+                print("\nPlease add a valid header (legendary, voucher). See documentation for more details.")
+                return nil
+            end
+
+            current_header = header
+
+            if not filter_criteria[current_header] then
+                filter_criteria[current_header] = {{}}
+            else 
+                local filter_criteria_header = filter_criteria[current_header]
+                filter_criteria_header[#filter_criteria_header + 1] = {}
+            end 
+        end
+
+        if key then
+            if current_header == "legendary" then
+                local legendary_filter_criteria = filter_criteria["legendary"]
+
+                if key == "name" then
+                    legendary_filter_criteria[#legendary_filter_criteria]["name"] = value
+                elseif key == "max_ante" then
+                    legendary_filter_criteria[#legendary_filter_criteria]["max_ante"] = tonumber(value)
+                elseif key == "min_ante" then
+                    legendary_filter_criteria[#legendary_filter_criteria]["min_ante"] = tonumber(value)
+                else
+                    print("Query line invalid:\n" .. line)
+                    print(
+                        "\nPlease include a valid field key (name, max_ante, min_ante). See documentation for more details.")
+                    return nil
+                end
+            elseif current_header == "voucher" then
+                local voucher_filter_criteria = filter_criteria["voucher"]
+
+                if key == "name" then
+                    voucher_filter_criteria[#voucher_filter_criteria]["name"] = value
+                elseif key == "max_ante" then
+                    voucher_filter_criteria[#voucher_filter_criteria]["max_ante"] = tonumber(value)
+                elseif key == "min_ante" then
+                    voucher_filter_criteria[#voucher_filter_criteria]["min_ante"] = tonumber(value)
+                else
+                    print("Query line invalid:\n" .. line)
+                    print(
+                        "\nPlease include a valid field key (name, max_ante, min_ante). See documentation for more details.")
+                    return nil
+                end
+            else
+                if not current_header then
+                    print("Query line invalid:\n" .. line)
+                    print(
+                        "\nPlease include a valid header (legendary, voucher) before the item field. See documentation for more details.")
+                    return nil
+                end
+            end
+        end
+    end
+
+    return filter_criteria
+end
+
 function Game:start_run(args)
+    local yaml_string = [[
+    legendary:
+        name: any
+    ]]
+
+    local filter_criteria = parse_yaml(yaml_string)
+
+    if filter_criteria == nil then
+        return
+    end
+
+    -- for _, val in ipairs(filter_criteria.legendary) do
+    --     print("a" .. val.name .. "b")
+    -- end
+
+    -- assert(false)
+
     G.SETTINGS.tutorial_progress = nil
     args.seed = generate_filtered_starting_seed(filter_criteria)
     orginal_game_start_run(self, args)
