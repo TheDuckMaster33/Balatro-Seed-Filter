@@ -422,7 +422,7 @@ end
 function Game:start_run(args)
     local yaml_string = [[
     legendary:
-        - name: Any
+        - name: Yorick
     voucher:
         - name: Telescope
     ]]
