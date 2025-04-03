@@ -339,6 +339,15 @@ local function parse_yaml(yaml_string)
         if not (empty or header or key or value) then
             print("Query line invalid:\n" .. line)
             print("\nPlease add a query header or item field. See documentation for more details.")
+
+            if line:match("^%s*([^-:]+)%s*$") or line:match("^%s*([^-:]+)%s*//.*$") then 
+                print("\nPlease add a query header or item field: did you forget a colon ':'? See documentation for more details.")
+            elseif line:match("^%s*%s*([^:]+)%s*:%s*(.+)%s*$") or line:match("^%s*%s*([^:]+)%s*:%s*(.+)%s*//.*$") then 
+                print("\nPlease add a query header or item field: did you forget a hyphen '-'? See documentation for more details.")
+            else 
+                print("\nPlease add a query header or item field. See documentation for more details.")
+            end 
+
             return nil
         end
 
@@ -360,10 +369,16 @@ local function parse_yaml(yaml_string)
         end
 
         if key then
+
+            value = value:gsub("%s+", "")
+
             if current_header == "legendary" then
                 local legendary_filter_criteria = filter_criteria["legendary"]
 
                 if key == "name" then
+                    if value == "Any" then 
+                        legendary_filter_criteria[#legendary_filter_criteria]["name"] = nil
+                    end
                     legendary_filter_criteria[#legendary_filter_criteria]["name"] = value
                 elseif key == "max_ante" then
                     legendary_filter_criteria[#legendary_filter_criteria]["max_ante"] = tonumber(value)
@@ -407,7 +422,9 @@ end
 function Game:start_run(args)
     local yaml_string = [[
     legendary:
-        name: any
+        - name: Any
+    voucher:
+        - name: Telescope
     ]]
 
     local filter_criteria = parse_yaml(yaml_string)
@@ -415,12 +432,6 @@ function Game:start_run(args)
     if filter_criteria == nil then
         return
     end
-
-    -- for _, val in ipairs(filter_criteria.legendary) do
-    --     print("a" .. val.name .. "b")
-    -- end
-
-    -- assert(false)
 
     G.SETTINGS.tutorial_progress = nil
     args.seed = generate_filtered_starting_seed(filter_criteria)
