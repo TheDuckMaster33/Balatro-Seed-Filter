@@ -152,6 +152,19 @@ function are_vouchers_found(vouchers, num_vouchers_to_analyse)
                 is_voucher_found = false
             end
 
+            if not is_voucher_found and voucher['name'] == "v_petroglyph" then
+                G.GAME.round_resets.ante = voucher_num - 1
+
+                voucher_key = get_next_voucher_key()
+                is_voucher_found = true
+
+                if voucher_key ~= voucher['name']
+                    or (voucher_num - 1) < voucher['min_ante']
+                    or (voucher_num - 1) > voucher['max_ante'] then
+                    is_voucher_found = false
+                end
+            end
+
             if is_voucher_found then
                 remaining_vouchers[key] = nil
                 G.GAME.used_vouchers[voucher_key] = true
@@ -230,6 +243,9 @@ function get_voucher_list_from_filter_criteria(filter_criteria)
     local vouchers = {}
     local max_voucher_ante = nil
 
+    local petroglyph_max_ante = nil
+
+
     if filter_criteria.voucher then
         for _, voucher in ipairs(filter_criteria.voucher) do
             local name = voucher['name']
@@ -245,6 +261,10 @@ function get_voucher_list_from_filter_criteria(filter_criteria)
             local min_ante = voucher['min_ante'] or 1
             local max_ante = voucher['max_ante'] or min_ante
 
+            if name == "v_petroglyph" then
+                petroglyph_max_ante = max_ante
+            end
+
             vouchers[#vouchers + 1] = { name = name, min_ante = min_ante, max_ante = max_ante }
 
             if max_voucher_ante == nil then
@@ -255,6 +275,10 @@ function get_voucher_list_from_filter_criteria(filter_criteria)
         end
     end
 
+    if max_voucher_ante and petroglyph_max_ante then
+        max_voucher_ante = math.max(max_voucher_ante, petroglyph_max_ante + 1)
+    end
+
     return vouchers, max_voucher_ante
 end
 
@@ -263,10 +287,8 @@ function generate_filtered_starting_seed(filter_criteria)
     local seed = nil
     local crack_count = 0
 
-    G.GAME = G:init_game_object()
-
     local legendaries, legendaries_max_tag, legendaries_min_tag = get_legendary_list_from_filter_criteria(
-    filter_criteria)
+        filter_criteria)
     local vouchers, max_voucher_ante = get_voucher_list_from_filter_criteria(filter_criteria)
 
     while true do
@@ -298,24 +320,6 @@ function generate_filtered_starting_seed(filter_criteria)
     end
 end
 
-local orginal_game_start_run = Game.start_run
-
-local filter_criteria = {
-    legendary = { { max_ante = 3 }, { max_ante = 3 } },
-    -- legendary = { { name = "Triboulet", max_ante = 0 } },
-    -- voucher = { { name = "Overstock", max_ante = 1 }, { name = "Telescope", max_ante = 2 } },
-    -- joker = { name = "Blueprint", by_ante = 1 }
-}
-
--- function query_yaml_to_object()
---     query = [[
---         hello
---         world
---         ]]
-
-
--- end
-
 local function parse_yaml(yaml_string)
     local filter_criteria = {}
     local current_header = nil
@@ -340,13 +344,15 @@ local function parse_yaml(yaml_string)
             print("Query line invalid:\n" .. line)
             print("\nPlease add a query header or item field. See documentation for more details.")
 
-            if line:match("^%s*([^-:]+)%s*$") or line:match("^%s*([^-:]+)%s*//.*$") then 
-                print("\nPlease add a query header or item field: did you forget a colon ':'? See documentation for more details.")
-            elseif line:match("^%s*%s*([^:]+)%s*:%s*(.+)%s*$") or line:match("^%s*%s*([^:]+)%s*:%s*(.+)%s*//.*$") then 
-                print("\nPlease add a query header or item field: did you forget a hyphen '-'? See documentation for more details.")
-            else 
+            if line:match("^%s*([^-:]+)%s*$") or line:match("^%s*([^-:]+)%s*//.*$") then
+                print(
+                    "\nPlease add a query header or item field: did you forget a colon ':'? See documentation for more details.")
+            elseif line:match("^%s*%s*([^:]+)%s*:%s*(.+)%s*$") or line:match("^%s*%s*([^:]+)%s*:%s*(.+)%s*//.*$") then
+                print(
+                    "\nPlease add a query header or item field: did you forget a hyphen '-'? See documentation for more details.")
+            else
                 print("\nPlease add a query header or item field. See documentation for more details.")
-            end 
+            end
 
             return nil
         end
@@ -361,22 +367,21 @@ local function parse_yaml(yaml_string)
             current_header = header
 
             if not filter_criteria[current_header] then
-                filter_criteria[current_header] = {{}}
-            else 
+                filter_criteria[current_header] = { {} }
+            else
                 local filter_criteria_header = filter_criteria[current_header]
                 filter_criteria_header[#filter_criteria_header + 1] = {}
-            end 
+            end
         end
 
         if key then
-
             value = value:gsub("%s+", "")
 
             if current_header == "legendary" then
                 local legendary_filter_criteria = filter_criteria["legendary"]
 
                 if key == "name" then
-                    if value == "Any" then 
+                    if value == "Any" then
                         legendary_filter_criteria[#legendary_filter_criteria]["name"] = nil
                     end
                     legendary_filter_criteria[#legendary_filter_criteria]["name"] = value
@@ -419,12 +424,237 @@ local function parse_yaml(yaml_string)
     return filter_criteria
 end
 
+local orginal_game_start_run = Game.start_run
+
+
+local utf8 = require("utf8")
+local text = "Type away! -- "
+
+
+function love.textinput(t)
+    text = text .. t
+end
+
+function love.keypressed(key)
+    if key == "backspace" then
+        -- get the byte offset to the last UTF-8 character in the string.
+        local byteoffset = utf8.offset(text, -1)
+
+        if byteoffset then
+            -- remove the last UTF-8 character.
+            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
+            text = string.sub(text, 1, byteoffset - 1)
+        end
+    end
+end
+
+original_love_draw = love.draw
+
+InputField = SMODS.load_file("InputField.lua")()
+
+
+love.keyboard.setKeyRepeat(true)
+
+local FONT_SIZE          = 20
+local FONT_LINE_HEIGHT   = 1.3
+
+local FIELD_TYPE         = "multiwrap" -- Possible values: normal, password, multiwrap, multinowrap
+
+local FIELD_OUTER_X      = 50
+local FIELD_OUTER_Y      = 100
+local FIELD_OUTER_WIDTH  = 120
+local FIELD_OUTER_HEIGHT = 80
+local FIELD_PADDING      = 6
+
+local FIELD_INNER_X      = FIELD_OUTER_X + FIELD_PADDING
+local FIELD_INNER_Y      = FIELD_OUTER_Y + FIELD_PADDING
+local FIELD_INNER_WIDTH  = FIELD_OUTER_WIDTH - 2 * FIELD_PADDING
+local FIELD_INNER_HEIGHT = FIELD_OUTER_HEIGHT - 2 * FIELD_PADDING
+
+local SCROLLBAR_WIDTH    = 5
+local BLINK_INTERVAL     = 0.90
+
+
+
+love.keyboard.setKeyRepeat(true)
+
+local theFont = love.graphics.newFont(FONT_SIZE)
+theFont:setLineHeight(FONT_LINE_HEIGHT)
+
+local field = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)
+field:setFont(theFont)
+field:setDimensions(FIELD_INNER_WIDTH, FIELD_INNER_HEIGHT)
+
+
+original_keypressed = love.keypressed
+
+-- print(original_keypressed)
+
+function love.keypressed(key, scancode, isRepeat)
+    original_keypressed(key, scancode, isRepeat)
+    field:keypressed(key, isRepeat)
+end
+
+function love.textinput(text)
+    field:textinput(text)
+end
+
+original_mousepressed = love.mousepressed
+
+function love.mousepressed(mx, my, mbutton, pressCount)
+    original_mousepressed(mx, my, mbutton, pressCount)
+    field:mousepressed(mx - FIELD_INNER_X, my - FIELD_INNER_Y, mbutton, pressCount)
+end
+
+original_mousemoved = love.mousemoved
+
+function love.mousemoved(mx, my, dx, dy)
+    original_mousemoved(mx, my, dx, dy)
+    field:mousemoved(mx - FIELD_INNER_X, my - FIELD_INNER_Y)
+end
+
+original_mousereleased = love.mousereleased
+
+function love.mousereleased(mx, my, mbutton, pressCount)
+    original_mousereleased(mx, my, mbutton, pressCount)
+    field:mousereleased(mx - FIELD_INNER_X, my - FIELD_INNER_Y, mbutton)
+end
+
+function love.wheelmoved(dx, dy)
+    field:wheelmoved(dx, dy)
+end
+
+original_update = love.update
+
+local should_draw_seed_filter_textbox = false
+
+function love.update(dt)
+    -- should_draw_seed_filter_textbox = false
+    original_update(dt)
+    field:update(dt)
+end
+
+local extraFont = love.graphics.newFont(12)
+
+function draw_seed_filter_textbox()
+
+    love.graphics.setScissor(FIELD_OUTER_X, FIELD_OUTER_Y, FIELD_OUTER_WIDTH, FIELD_OUTER_HEIGHT)
+
+    -- Background.
+    love.graphics.setColor(0, 0, 0)
+    love.graphics.rectangle("fill", FIELD_OUTER_X, FIELD_OUTER_Y, FIELD_OUTER_WIDTH, FIELD_OUTER_HEIGHT)
+
+    -- Selection.
+    love.graphics.setColor(.2, .2, 1)
+    for _, selectionX, selectionY, selectionWidth, selectionHeight in field:eachSelection() do
+        love.graphics.rectangle("fill", FIELD_INNER_X + selectionX, FIELD_INNER_Y + selectionY, selectionWidth,
+            selectionHeight)
+    end
+
+    -- Text.
+    love.graphics.setFont(theFont)
+    love.graphics.setColor(1, 1, 1)
+    for _, lineText, lineX, lineY in field:eachVisibleLine() do
+        love.graphics.print(lineText, FIELD_INNER_X + lineX, FIELD_INNER_Y + lineY)
+    end
+
+    -- Cursor.
+    local cursorWidth = 2
+    local cursorX, cursorY, cursorHeight = field:getCursorLayout()
+    local alpha = ((field:getBlinkPhase() / BLINK_INTERVAL) % 1 < .5) and 1 or 0
+    love.graphics.setColor(1, 1, 1, alpha)
+    love.graphics.rectangle("fill", FIELD_INNER_X + cursorX - cursorWidth / 2, FIELD_INNER_Y + cursorY, cursorWidth,
+        cursorHeight)
+
+    love.graphics.setScissor()
+
+    --
+    -- Scrollbars.
+    --
+    local horiOffset, horiCoverage, vertOffset, vertCoverage = field:getScrollHandles()
+
+    local horiHandleLength                                   = horiCoverage * FIELD_OUTER_WIDTH
+    local vertHandleLength                                   = vertCoverage * FIELD_OUTER_HEIGHT
+    local horiHandlePos                                      = horiOffset * FIELD_OUTER_WIDTH
+    local vertHandlePos                                      = vertOffset * FIELD_OUTER_HEIGHT
+
+    -- Backgrounds.
+    love.graphics.setColor(0, 0, 0, .3)
+    love.graphics.rectangle("fill", FIELD_OUTER_X + FIELD_OUTER_WIDTH, FIELD_OUTER_Y, SCROLLBAR_WIDTH, FIELD_OUTER_HEIGHT) -- Vertical scrollbar.
+    love.graphics.rectangle("fill", FIELD_OUTER_X, FIELD_OUTER_Y + FIELD_OUTER_HEIGHT, FIELD_OUTER_WIDTH, SCROLLBAR_WIDTH) -- Horizontal scrollbar.
+
+    -- Handles.
+    love.graphics.setColor(.7, .7, .7)
+    love.graphics.rectangle("fill", FIELD_OUTER_X + FIELD_OUTER_WIDTH, FIELD_OUTER_Y + vertHandlePos, SCROLLBAR_WIDTH,
+        vertHandleLength) -- Vertical scrollbar.
+    love.graphics.rectangle("fill", FIELD_OUTER_X + horiHandlePos, FIELD_OUTER_Y + FIELD_OUTER_HEIGHT, horiHandleLength,
+        SCROLLBAR_WIDTH)  -- Horizontal scrollbar.
+
+end
+
+function love.draw()
+    original_love_draw()
+
+    if should_draw_seed_filter_textbox then
+        draw_seed_filter_textbox()
+    end
+end
+
+function should_draw_seed_filter_textbox_fun()
+    should_draw_seed_filter_textbox = true
+end
+
+original_options = G.FUNCS.options
+
+function G.FUNCS.options()
+    should_draw_seed_filter_textbox = false
+    original_options()
+end
+
+original_settings_tab = G.UIDEF.settings_tab
+
+function G.UIDEF.settings_tab(tab)
+    should_draw_seed_filter_textbox = false
+    return original_settings_tab(tab)
+end
+
+local original_create_tabs = create_tabs
+
+function create_tabs(args)
+    if args and args.tab_h == 7.05 then
+        args.tabs[#args.tabs + 1] = {
+            label = "Seed Filter",
+            tab_definition_function = function()
+                return {
+                    n = G.UIT.ROOT,
+                    config = {
+                        align = "cm",
+                        padding = 0.05,
+                        colour = G.C.CLEAR,
+                    },
+                    nodes = {
+                       
+                    },
+                    _tab_load_side_effect = should_draw_seed_filter_textbox_fun()
+                }
+            end,
+            tab_definition_function_args = "Seed Filter",
+        }
+    end
+
+    return original_create_tabs(args)
+end
+
 function Game:start_run(args)
+    for key, val in pairs(G.FUNCS) do
+        print(key)
+    end
+
     local yaml_string = [[
-    legendary:
-        - name: Yorick
-    voucher:
-        - name: Telescope
+        legendary:
+            - name: Perkeo
+        voucher:
+            - name: Telescope
     ]]
 
     local filter_criteria = parse_yaml(yaml_string)
@@ -433,7 +663,7 @@ function Game:start_run(args)
         return
     end
 
-    G.SETTINGS.tutorial_progress = nil
+    G.SETTINGS.tutorial_progress = nil -- check this
     args.seed = generate_filtered_starting_seed(filter_criteria)
     orginal_game_start_run(self, args)
 end
