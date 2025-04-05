@@ -426,28 +426,6 @@ end
 
 local orginal_game_start_run = Game.start_run
 
-
--- local utf8 = require("utf8")
--- local text = "Type away! -- "
-
-
--- function love.textinput(t)
---     text = text .. t
--- end
-
--- function love.keypressed(key)
---     if key == "backspace" then
---         -- get the byte offset to the last UTF-8 character in the string.
---         local byteoffset = utf8.offset(text, -1)
-
---         if byteoffset then
---             -- remove the last UTF-8 character.
---             -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
---             text = string.sub(text, 1, byteoffset - 1)
---         end
---     end
--- end
-
 original_love_draw = love.draw
 
 InputField = SMODS.load_file("InputField.lua")()
@@ -455,26 +433,40 @@ InputField = SMODS.load_file("InputField.lua")()
 
 love.keyboard.setKeyRepeat(true)
 
-local FONT_SIZE          = 20
-local FONT_LINE_HEIGHT   = 1.3
+local FONT_SIZE        = 20
+local FONT_LINE_HEIGHT = 1.3
 
-local FIELD_TYPE         = "multiwrap" -- Possible values: normal, password, multiwrap, multinowrap
+local FIELD_TYPE       = "multiwrap" -- Possible values: normal, password, multiwrap, multinowrap
 
-local FIELD_OUTER_X      = 50
-local FIELD_OUTER_Y      = 100
-local FIELD_OUTER_WIDTH  = 120
-local FIELD_OUTER_HEIGHT = 80
+
+
+local FIELD_OUTER_X      = nil
+local FIELD_OUTER_Y      = nil
+local FIELD_OUTER_WIDTH  = nil
+local FIELD_OUTER_HEIGHT = nil
 local FIELD_PADDING      = 6
 
-local FIELD_INNER_X      = FIELD_OUTER_X + FIELD_PADDING
-local FIELD_INNER_Y      = FIELD_OUTER_Y + FIELD_PADDING
-local FIELD_INNER_WIDTH  = FIELD_OUTER_WIDTH - 2 * FIELD_PADDING
-local FIELD_INNER_HEIGHT = FIELD_OUTER_HEIGHT - 2 * FIELD_PADDING
+local FIELD_INNER_X      = nil
+local FIELD_INNER_Y      = nil
+local FIELD_INNER_WIDTH  = nil
+local FIELD_INNER_HEIGHT = nil
 
-local SCROLLBAR_WIDTH    = 5
-local BLINK_INTERVAL     = 0.90
+function recalculate_field_size()
+    FIELD_OUTER_X      = love.graphics.getWidth() * 0.17
+    FIELD_OUTER_Y      = love.graphics.getHeight() * 0.16
+    FIELD_OUTER_WIDTH  = love.graphics.getWidth() * 0.65
+    FIELD_OUTER_HEIGHT = love.graphics.getHeight() * 0.45
 
+    FIELD_INNER_X      = FIELD_OUTER_X + FIELD_PADDING
+    FIELD_INNER_Y      = FIELD_OUTER_Y + FIELD_PADDING
+    FIELD_INNER_WIDTH  = FIELD_OUTER_WIDTH - 2 * FIELD_PADDING
+    FIELD_INNER_HEIGHT = FIELD_OUTER_HEIGHT - 2 * FIELD_PADDING
+end
 
+recalculate_field_size() 
+
+local SCROLLBAR_WIDTH = 5
+local BLINK_INTERVAL  = 0.90
 
 love.keyboard.setKeyRepeat(true)
 
@@ -613,31 +605,77 @@ local seed_filter_ui = {
         colour = G.C.CLEAR,
     },
     nodes = {
-        UIBox_button({
-            button = 'apply_filter_criteria_changes',
-            label = { "Apply" },
-            minw = 3,
-            func =
-            'filter_criteria_apply_button_UI'
-        }),
-        UIBox_button({
-            button = 'discard_filter_criteria_changes',
-            label = { "Discard" },
-            minw = 3,
-            func =
-            'filter_criteria_discard_button_UI'
-        }),
-        submit_status_node
+        {
+            n = G.UIT.C,
+            config = { minw = 15, minh = 4, align = "c", colour = G.C.MONEY },
+            nodes = {
+                {
+                    n = G.UIT.R,
+                    config = { minw = 15, minh = 6, align = "cm", colour = G.C.WHITE },
+                    nodes = {
+                        UIBox({
+                            definition = {
+                                n = G.UIT.R,
+                                config = { minw = 15, minh = 6, align = "cm", colour = G.C.WHITE }
+                            },
+                            config = { align = "tm", colour = G.C.WHITE }
+                        })
+                    }
+                },
+
+                {
+                    n = G.UIT.R,
+                    config = { minw = 2, minh = 2, colour = G.C.RED },
+                    nodes = {
+                        {
+                            n = G.UIT.C,
+                            config = { minw = 1, minh = 1, colour = G.C.BLUE },
+                            nodes = {
+                                UIBox_button({
+                                    button = 'apply_filter_criteria_changes',
+                                    label = { "Apply" },
+                                    minw = 3,
+                                    func =
+                                    'filter_criteria_apply_button_UI'
+                                }),
+                            }
+                        },
+                        {
+                            n = G.UIT.C,
+                            config = { minw = 1, minh = 1, colour = G.C.BLUE },
+                            nodes = {
+                                UIBox_button({
+                                    button = 'discard_filter_criteria_changes',
+                                    label = { "Discard" },
+                                    minw = 3,
+                                    func =
+                                    'filter_criteria_discard_button_UI'
+                                }),
+                            }
+                        }
+                    }
+                },
+
+                {
+                    n = G.UIT.R,
+                    config = { minw = 2, minh = 1, align = "cm", colour = G.C.RED },
+                    nodes = {
+                        submit_status_node
+                    }
+                }
+            }
+        },
     },
 }
 
 function tab_definition_function()
-    seed_filter_ui.nodes[1].nodes[1].config.button = "apply_filter_criteria_changes"
-    seed_filter_ui.nodes[2].nodes[1].config.button = "discard_filter_criteria_changes"
+    -- print(seed_filter_ui.nodes[1].nodes[1].nodes[1].VT.x)
 
+    -- seed_filter_ui.nodes[1].nodes[1].nodes[1].config.button = "apply_filter_criteria_changes"
+    -- seed_filter_ui.nodes[1].nodes[2].nodes[1].config.button = "discard_filter_criteria_changes"
 
-    -- x = UIBox { definition = seed_filter_ui, config = {} }
-    -- UIBox.remove(x)
+    -- print(seed_filter_ui.nodes[1])
+
     should_draw_seed_filter_textbox_fun()
     return seed_filter_ui
 end
@@ -648,27 +686,34 @@ local seed_filter_tab = {
     tab_definition_function_args = "Seed Filter",
 }
 
+local original_resize = love.resize
+
+function love.resize(w, h)
+    original_resize(w, h)
+
+    -- local x = seed_filter_ui.nodes[1].nodes[1].nodes[1].UIRoot.parent
+    -- local transform = x.VT or x.T
+    -- print(transform.x*G.TILESIZE)
+    -- print()
+    -- print(seed_filter_ui.nodes[1].nodes[1].nodes[1].calculate_xywh(seed_filter_ui.nodes[1].nodes[1].nodes[1].UIRoot, seed_filter_ui.nodes[1].nodes[1].nodes[1].T, true))
+    -- print(seed_filter_ui.nodes[1].nodes[1].nodes[1].T.w * G.TILESCALE) -- G.TILESIZE
+    -- print(seed_filter_ui.nodes[1].nodes[1].nodes[1].VT.w * G.TILESCALE)
+    -- FIELD_OUTER_X      = love.graphics.getWidth() * 0.15
+    -- FIELD_OUTER_Y      = love.graphics.getHeight() * 0.15
+    -- FIELD_OUTER_WIDTH  = love.graphics.getWidth() * 0.65
+    -- FIELD_OUTER_HEIGHT = love.graphics.getHeight() * 0.45
+
+    -- FIELD_INNER_X      = FIELD_OUTER_X + FIELD_PADDING
+    -- FIELD_INNER_Y      = FIELD_OUTER_Y + FIELD_PADDING
+    -- FIELD_INNER_WIDTH  = FIELD_OUTER_WIDTH - 2 * FIELD_PADDING
+    -- FIELD_INNER_HEIGHT = FIELD_OUTER_HEIGHT - 2 * FIELD_PADDING
+
+    recalculate_field_size()
+end
 
 local submitted_filter_criteria = ""
 
 local z = nil
-
--- local original_change_tab = G.FUNCS.change_tab
-
--- function G.FUNCS.change_tab(e)
---     if field.text ~= submitted_filter_criteria then
---         print("Please submit or discard changes.")
---         print(field.text)
---         print(submitted_filter_criteria)
---         submit_status_node.config.text = "Please submit or discard changes."
---         seed_filter_tab.chosen = true
-
---         return seed_filter_ui
---     else
---         original_change_tab(e)
---     end
--- end
-
 
 function UIElement:click()
     if self.config.button and (not self.last_clicked or self.last_clicked + 0.1 < G.TIMERS.REAL) and self.states.visible and not self.under_overlay and not self.disable_button then
@@ -725,49 +770,6 @@ function G.FUNCS.options()
         -- seed_filter_tab.tab_definition_function()
         x = UIBox { definition = seed_filter_tab.tab_definition_function(), config = {} }
         UIBox.remove(x)
-
-        -- nodes = {
-        --     {
-        --         nodes = {
-        --             { n = G.UIT.O, config = { id = 'tab_contents', object = UIBox { definition = seed_filter_tab.tab_definition_function(), config = { offset = { x = 0, y = 0 } } } } }
-        --         }
-        --     },
-        -- }
-        -- create_tabs(
-        --     {
-        --         tabs = tabs,
-        --         tab_h = 7.05,
-        --         tab_alignment = 'tm',
-        --         snap_to_nav = true
-        --     }
-        -- )
-        -- create_UIBox_generic_options({
-        --     back_func = 'options',
-        --     contents = { create_tabs(
-        --         {
-        --             tabs = tabs,
-        --             tab_h = 7.05,
-        --             tab_alignment = 'tm',
-        --             snap_to_nav = true
-        --         }
-        --     ) }
-        -- })
-
-        -- print(submit_status_node.config.text)
-
-        -- print(seed_filter_ui.nodes[3].config.text)
-
-        -- seed_filter_tab.chosen = true
-
-        -- local tab_but = G.OVERLAY_MENU:get_UIE_by_ID('tab_but_Seed Filter')
-        -- G.FUNCS.change_tab(seed_filter_tab)
-        -- G:draw()
-
-        -- return seed_filter_ui
-
-        -- G.UIDEF.settings_tab(seed_filter_tab)
-
-
 
         return
     end
