@@ -427,26 +427,26 @@ end
 local orginal_game_start_run = Game.start_run
 
 
-local utf8 = require("utf8")
-local text = "Type away! -- "
+-- local utf8 = require("utf8")
+-- local text = "Type away! -- "
 
 
-function love.textinput(t)
-    text = text .. t
-end
+-- function love.textinput(t)
+--     text = text .. t
+-- end
 
-function love.keypressed(key)
-    if key == "backspace" then
-        -- get the byte offset to the last UTF-8 character in the string.
-        local byteoffset = utf8.offset(text, -1)
+-- function love.keypressed(key)
+--     if key == "backspace" then
+--         -- get the byte offset to the last UTF-8 character in the string.
+--         local byteoffset = utf8.offset(text, -1)
 
-        if byteoffset then
-            -- remove the last UTF-8 character.
-            -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
-            text = string.sub(text, 1, byteoffset - 1)
-        end
-    end
-end
+--         if byteoffset then
+--             -- remove the last UTF-8 character.
+--             -- string.sub operates on bytes rather than UTF-8 characters, so we couldn't do string.sub(text, 1, -2).
+--             text = string.sub(text, 1, byteoffset - 1)
+--         end
+--     end
+-- end
 
 original_love_draw = love.draw
 
@@ -481,7 +481,7 @@ love.keyboard.setKeyRepeat(true)
 local theFont = love.graphics.newFont(FONT_SIZE)
 theFont:setLineHeight(FONT_LINE_HEIGHT)
 
-local field = InputField("Foo, bar...\nFoobar?", FIELD_TYPE)
+local field = InputField("", FIELD_TYPE)
 field:setFont(theFont)
 field:setDimensions(FIELD_INNER_WIDTH, FIELD_INNER_HEIGHT)
 
@@ -537,7 +537,6 @@ end
 local extraFont = love.graphics.newFont(12)
 
 function draw_seed_filter_textbox()
-
     love.graphics.setScissor(FIELD_OUTER_X, FIELD_OUTER_Y, FIELD_OUTER_WIDTH, FIELD_OUTER_HEIGHT)
 
     -- Background.
@@ -589,7 +588,6 @@ function draw_seed_filter_textbox()
         vertHandleLength) -- Vertical scrollbar.
     love.graphics.rectangle("fill", FIELD_OUTER_X + horiHandlePos, FIELD_OUTER_Y + FIELD_OUTER_HEIGHT, horiHandleLength,
         SCROLLBAR_WIDTH)  -- Horizontal scrollbar.
-
 end
 
 function love.draw()
@@ -604,9 +602,176 @@ function should_draw_seed_filter_textbox_fun()
     should_draw_seed_filter_textbox = true
 end
 
-original_options = G.FUNCS.options
+local tabs = nil
+local submit_status_node = { n = G.UIT.T, config = { text = "Hello, world!", colour = G.C.UI.TEXT_LIGHT, scale = 0.5 } }
+
+local seed_filter_ui = {
+    n = G.UIT.ROOT,
+    config = {
+        align = "cm",
+        padding = 0.05,
+        colour = G.C.CLEAR,
+    },
+    nodes = {
+        UIBox_button({
+            button = 'apply_filter_criteria_changes',
+            label = { "Apply" },
+            minw = 3,
+            func =
+            'filter_criteria_apply_button_UI'
+        }),
+        UIBox_button({
+            button = 'discard_filter_criteria_changes',
+            label = { "Discard" },
+            minw = 3,
+            func =
+            'filter_criteria_discard_button_UI'
+        }),
+        submit_status_node
+    },
+}
+
+function tab_definition_function()
+    seed_filter_ui.nodes[1].nodes[1].config.button = "apply_filter_criteria_changes"
+    seed_filter_ui.nodes[2].nodes[1].config.button = "discard_filter_criteria_changes"
+
+
+    -- x = UIBox { definition = seed_filter_ui, config = {} }
+    -- UIBox.remove(x)
+    should_draw_seed_filter_textbox_fun()
+    return seed_filter_ui
+end
+
+local seed_filter_tab = {
+    label = "Seed Filter",
+    tab_definition_function = tab_definition_function,
+    tab_definition_function_args = "Seed Filter",
+}
+
+
+local submitted_filter_criteria = ""
+
+local z = nil
+
+-- local original_change_tab = G.FUNCS.change_tab
+
+-- function G.FUNCS.change_tab(e)
+--     if field.text ~= submitted_filter_criteria then
+--         print("Please submit or discard changes.")
+--         print(field.text)
+--         print(submitted_filter_criteria)
+--         submit_status_node.config.text = "Please submit or discard changes."
+--         seed_filter_tab.chosen = true
+
+--         return seed_filter_ui
+--     else
+--         original_change_tab(e)
+--     end
+-- end
+
+
+function UIElement:click()
+    if self.config.button and (not self.last_clicked or self.last_clicked + 0.1 < G.TIMERS.REAL) and self.states.visible and not self.under_overlay and not self.disable_button then
+        if self.config.one_press then self.disable_button = true end
+        self.last_clicked = G.TIMERS.REAL
+
+        --Removes a layer from the overlay menu stack
+        if self.config.id == 'overlay_menu_back_button' then
+            G.CONTROLLER:mod_cursor_context_layer(-1)
+            G.NO_MOD_CURSOR_STACK = true
+        end
+        if G.OVERLAY_TUTORIAL and G.OVERLAY_TUTORIAL.button_listen == self.config.button then
+            G.FUNCS.tut_next()
+        end
+        G.FUNCS[self.config.button](self)
+
+        G.NO_MOD_CURSOR_STACK = nil
+
+        if self.config.choice and field.text == submitted_filter_criteria then
+            local choices = self.UIBox:get_group(nil, self.config.group)
+            for k, v in pairs(choices) do
+                if v.config and v.config.choice then v.config.chosen = false end
+            end
+            self.config.chosen = true
+        end
+        play_sound('button', 1, 0.3)
+        G.ROOM.jiggle = G.ROOM.jiggle + 0.5
+        self.button_clicked = true
+    end
+    if self.config.button_UIE then
+        self.config.button_UIE:click()
+    end
+end
+
+local original_options = G.FUNCS.options
 
 function G.FUNCS.options()
+    if field.text ~= submitted_filter_criteria then
+        -- print(submit_status_node.config.text)
+        submit_status_node.config.text = "Please submit or discard changes."
+
+        -- tab_definition_function()
+
+        args = args or {}
+        args.colour = args.colour or G.C.RED
+        args.tab_alignment = args.tab_alignment or 'cm'
+        args.opt_callback = args.opt_callback or nil
+        args.scale = args.scale or 1
+        args.tab_w = args.tab_w or 0
+        args.tab_h = args.tab_h or 0
+        args.text_scale = (args.text_scale or 0.5)
+        args.tabs = tabs
+
+        -- seed_filter_tab.tab_definition_function()
+        x = UIBox { definition = seed_filter_tab.tab_definition_function(), config = {} }
+        UIBox.remove(x)
+
+        -- nodes = {
+        --     {
+        --         nodes = {
+        --             { n = G.UIT.O, config = { id = 'tab_contents', object = UIBox { definition = seed_filter_tab.tab_definition_function(), config = { offset = { x = 0, y = 0 } } } } }
+        --         }
+        --     },
+        -- }
+        -- create_tabs(
+        --     {
+        --         tabs = tabs,
+        --         tab_h = 7.05,
+        --         tab_alignment = 'tm',
+        --         snap_to_nav = true
+        --     }
+        -- )
+        -- create_UIBox_generic_options({
+        --     back_func = 'options',
+        --     contents = { create_tabs(
+        --         {
+        --             tabs = tabs,
+        --             tab_h = 7.05,
+        --             tab_alignment = 'tm',
+        --             snap_to_nav = true
+        --         }
+        --     ) }
+        -- })
+
+        -- print(submit_status_node.config.text)
+
+        -- print(seed_filter_ui.nodes[3].config.text)
+
+        -- seed_filter_tab.chosen = true
+
+        -- local tab_but = G.OVERLAY_MENU:get_UIE_by_ID('tab_but_Seed Filter')
+        -- G.FUNCS.change_tab(seed_filter_tab)
+        -- G:draw()
+
+        -- return seed_filter_ui
+
+        -- G.UIDEF.settings_tab(seed_filter_tab)
+
+
+
+        return
+    end
+
     should_draw_seed_filter_textbox = false
     original_options()
 end
@@ -614,35 +779,98 @@ end
 original_settings_tab = G.UIDEF.settings_tab
 
 function G.UIDEF.settings_tab(tab)
+    if field.text ~= submitted_filter_criteria then
+        print("Please submit or discard changes.")
+        print(field.text)
+        print(submitted_filter_criteria)
+        submit_status_node.config.text = "Please submit or discard changes."
+        -- seed_filter_tab.chosen = true
+        -- local tab_but = G.OVERLAY_MENU:get_UIE_by_ID('tab_but_Seed Filter')
+        -- G.FUNCS.change_tab(seed_filter_tab)
+        -- G.buttons:recalculate()
+        -- G.HUD:recalculate()
+        return seed_filter_ui
+    end
+
     should_draw_seed_filter_textbox = false
     return original_settings_tab(tab)
 end
 
+-- original_create_UIBox_generic_options = create_UIBox_generic_options
+
+-- function create_UIBox_generic_options(args)
+--     if field.text ~= submitted_filter_criteria then
+--         print("Please submit or discard changes.")
+--         print(field.text)
+--         print(submitted_filter_criteria)
+--         submit_status_node.config.text = "Please submit or discard changes."
+
+--     end
+
+--     original_create_UIBox_generic_options(args)
+-- end
+
 local original_create_tabs = create_tabs
+
+
+
+-- local filter_criteria_changed = false
+
+function G.FUNCS.apply_filter_criteria_changes(_initial)
+    submitted_filter_criteria = field.text
+end
+
+function G.FUNCS.discard_filter_criteria_changes(_initial)
+    field.text = submitted_filter_criteria
+    field:releaseMouse()
+
+    field.cursorPosition           = 0
+    field.selectionStart           = 0
+    field.selectionEnd             = 0
+
+    field.clickCount               = 1
+    field.multiClickExpirationTime = 0
+
+    field.navigationTargetX        = nil
+end
+
+function G.FUNCS.filter_criteria_apply_button_UI(e)
+    if field.text ~= submitted_filter_criteria then
+        e.config.button = 'apply_filter_criteria_changes'
+        e.config.colour = G.C.GREEN
+    else
+        e.config.button = nil
+        e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+    end
+end
+
+function G.FUNCS.filter_criteria_discard_button_UI(e)
+    if field.text ~= submitted_filter_criteria then
+        e.config.button = 'discard_filter_criteria_changes'
+        e.config.colour = G.C.RED
+    else
+        e.config.button = nil
+        e.config.colour = G.C.UI.BACKGROUND_INACTIVE
+    end
+end
 
 function create_tabs(args)
     if args and args.tab_h == 7.05 then
-        args.tabs[#args.tabs + 1] = {
-            label = "Seed Filter",
-            tab_definition_function = function()
-                return {
-                    n = G.UIT.ROOT,
-                    config = {
-                        align = "cm",
-                        padding = 0.05,
-                        colour = G.C.CLEAR,
-                    },
-                    nodes = {
-                       
-                    },
-                    _tab_load_side_effect = should_draw_seed_filter_textbox_fun()
-                }
-            end,
-            tab_definition_function_args = "Seed Filter",
-        }
+        args.tabs[#args.tabs + 1] = seed_filter_tab
     end
 
-    return original_create_tabs(args)
+    tabs = args.tabs
+
+    local w = original_create_tabs(args)
+
+    -- if seed_filter_tab.current then
+    --     z = w.nodes[2].nodes[1].config.object
+    --     print("AAA")
+    -- end
+
+    -- print(z)
+
+    return w
 end
 
 function Game:start_run(args)
@@ -650,14 +878,14 @@ function Game:start_run(args)
         print(key)
     end
 
-    local yaml_string = [[
-        legendary:
-            - name: Perkeo
-        voucher:
-            - name: Telescope
-    ]]
+    -- local yaml_string = [[
+    --     legendary:
+    --         - name: Perkeo
+    --     voucher:
+    --         - name: Telescope
+    -- ]]
 
-    local filter_criteria = parse_yaml(yaml_string)
+    local filter_criteria = parse_yaml(field.text)
 
     if filter_criteria == nil then
         return
