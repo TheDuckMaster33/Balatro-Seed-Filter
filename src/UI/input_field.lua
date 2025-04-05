@@ -222,8 +222,6 @@ local function utf8GetEndOffset(line, pos)
 	return (utf8.offset(line, pos+1) or #line+1) - 1
 end
 
-
-
 local function cleanString(field, s)
 	local isMultiline = field:isMultiline()
 	s                 = s:gsub((isMultiline and "[%z\1-\9\11-\31]+" or "[%z\1-\31]+"), "") -- Should we allow horizontal tab?
