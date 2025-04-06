@@ -9,7 +9,10 @@ function generate_filtered_starting_seed(filter_criteria)
     local legendaries, legendaries_max_tag, legendaries_min_tag = get_legendary_list_from_filter_criteria(
         filter_criteria)
     local vouchers, max_voucher_ante = get_voucher_list_from_filter_criteria(filter_criteria)
+    local spectral_cards, spectral_cards_max_tag, spectral_cards_min_tag = get_spectral_cards_list_from_filter_criteria(filter_criteria)
 
+    print("S")
+    print(#spectral_cards)
     while true do
         repeat
             crack_count = crack_count + 1
@@ -34,6 +37,12 @@ function generate_filtered_starting_seed(filter_criteria)
                 end
             end
 
+            if #spectral_cards > 0 then
+                if not are_spectral_cards_found(spectral_cards, spectral_cards_min_tag, spectral_cards_max_tag) then
+                    break
+                end
+            end
+
             return seed
         until true
     end
@@ -44,8 +53,6 @@ local orginal_game_start_run = Game.start_run
 filter_criteria = {}
 
 function Game:start_run(args)
-    -- local filter_criteria = parse_yaml(field.text)
-
     if filter_criteria == nil then
         return
     end

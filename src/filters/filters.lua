@@ -180,6 +180,44 @@ function are_vouchers_found(vouchers, num_vouchers_to_analyse)
     return false
 end
 
+function are_spectral_cards_found(spectral_cards, spectral_cards_min_tag, spectral_cards_max_tag)
+    local remaining_spectral_cards = {}
+    for k, v in pairs(spectral_cards) do remaining_spectral_cards[k] = v end
+
+    for tag_num = 1, spectral_cards_max_tag do
+        local ante = math.floor((tag_num + 1) / 2)
+
+        G.GAME.round_resets.ante = ante
+
+        local tag = get_next_tag_key()
+
+        if tag_num >= spectral_cards_min_tag then
+            local found_spectral_cards = find_all_cards_in_next_pack('Spectral', 2, 'spe')
+
+            for key, spectral_card in pairs(remaining_spectral_cards) do
+                local is_spectral_card_found = true
+
+                if found_spectral_cards[spectral_card['name']] == nil or tag_num < spectral_card['at_least_tag']
+                    or tag_num > spectral_card['at_most_tag'] then
+                    is_spectral_card_found = false
+                end
+
+                if is_spectral_card_found then
+                    remaining_spectral_cards[key] = nil
+
+                    if #remaining_spectral_cards == 0 then
+                        G.GAME.round_resets.ante = 1
+                        return true
+                    end
+                end
+            end
+        end
+    end
+
+    G.GAME.round_resets.ante = 1
+    return false
+end
+
 -- function is_joker_found(joker, num_tags_to_analyse)
 --     for tag_num = 1, num_tags_to_analyse do
 --         G.GAME.round_resets.ante = math.floor((tag_num + 1) / 2)
@@ -199,82 +237,3 @@ end
 --     return false
 -- end
 
-function get_legendary_list_from_filter_criteria(filter_criteria)
-    local legendaries = {}
-    local legendaries_max_tag = nil
-    local legendaries_min_tag = nil
-
-    if filter_criteria.legendary then
-        for _, legendary in ipairs(filter_criteria.legendary) do
-            local name = legendary['name']
-            local min_ante = legendary['min_ante'] or 0
-            local max_ante = legendary['max_ante'] or min_ante
-
-            local at_least_tag = min_ante == 0 and 1 or (min_ante * 2) - 1
-            local at_most_tag = max_ante == 0 and 1 or (max_ante * 2)
-
-            assert(at_least_tag <= at_most_tag)
-
-            legendaries[#legendaries + 1] = { name = name, at_least_tag = at_least_tag, at_most_tag = at_most_tag }
-
-            if legendaries_max_tag == nil or legendaries_min_tag == nil then
-                legendaries_max_tag = at_most_tag
-                legendaries_min_tag = at_least_tag
-            else
-                legendaries_max_tag = math.max(legendaries_max_tag, at_most_tag)
-                legendaries_min_tag = math.min(legendaries_min_tag, at_least_tag)
-            end
-        end
-    end
-
-    function sort_by_at_most_tag(card1, card2)
-        return card1['at_most_tag'] < card2['at_most_tag']
-    end
-
-    table.sort(legendaries, sort_by_at_most_tag)
-
-    return legendaries, legendaries_max_tag, legendaries_min_tag
-end
-
-function get_voucher_list_from_filter_criteria(filter_criteria)
-    local vouchers = {}
-    local max_voucher_ante = nil
-
-    local petroglyph_max_ante = nil
-
-
-    if filter_criteria.voucher then
-        for _, voucher in ipairs(filter_criteria.voucher) do
-            local name = voucher['name']
-
-            if name == "Overstock" then
-                name = "v_overstock_norm"
-            elseif name == "Director's Cut" then
-                name = "v_directors_cut"
-            else
-                name = "v_" .. string.gsub(string.lower(name), " ", "_")
-            end
-
-            local min_ante = voucher['min_ante'] or 1
-            local max_ante = voucher['max_ante'] or min_ante
-
-            if name == "v_petroglyph" then
-                petroglyph_max_ante = max_ante
-            end
-
-            vouchers[#vouchers + 1] = { name = name, min_ante = min_ante, max_ante = max_ante }
-
-            if max_voucher_ante == nil then
-                max_voucher_ante = max_ante
-            else
-                max_voucher_ante = math.max(max_voucher_ante, max_ante)
-            end
-        end
-    end
-
-    if max_voucher_ante and petroglyph_max_ante then
-        max_voucher_ante = math.max(max_voucher_ante, petroglyph_max_ante + 1)
-    end
-
-    return vouchers, max_voucher_ante
-end
