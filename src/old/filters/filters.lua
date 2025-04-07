@@ -1,15 +1,15 @@
 -- Seed generation code copied from Balatro source code (for some reason, calling the function directly from the source does not produce the correct results)
-function pseudoseed(key, predict_seed)
+function optimised_pseudoseed(key, predict_seed)
     if key == 'seed' then return math.random() end
 
     if predict_seed then
-        local _pseed = pseudohash(key .. (predict_seed or ''))
+        local _pseed = optimised_pseudohash(key .. (predict_seed or ''))
         _pseed = math.abs(tonumber(string.format("%.13f", (2.134453429141 + _pseed * 1.72431234) % 1)))
-        return (_pseed + (pseudohash(predict_seed) or 0)) / 2
+        return (_pseed + (optimised_pseudohash(predict_seed) or 0)) / 2
     end
 
     if not G.GAME.pseudorandom[key] then
-        G.GAME.pseudorandom[key] = pseudohash(key .. (G.GAME.pseudorandom.seed or ''))
+        G.GAME.pseudorandom[key] = optimised_pseudohash(key .. (G.GAME.pseudorandom.seed or ''))
     end
 
     G.GAME.pseudorandom[key] = math.abs(tonumber(string.format("%.13f",
@@ -19,13 +19,13 @@ end
 
 function find_next_card(pack_type, pack_type_seed_id, resample_count)
     if pack_type == "Tarot" or pack_type == "Spectral" then
-        if resample_count == 0 and pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
+        if resample_count == 0 and optimised_pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
             return 'Soul'
         end
     end
 
     if pack_type == 'Spectral' then
-        if resample_count == 0 and pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
+        if resample_count == 0 and optimised_pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
             return 'Black Hole'
         end
     end
@@ -37,12 +37,12 @@ function find_next_card(pack_type, pack_type_seed_id, resample_count)
         rarity = true
     end
 
-    local _pool, _pool_key = get_current_pool(pack_type, nil, rarity, pack_type_seed_id)
+    local _pool, _pool_key = optimised_get_current_pool(pack_type, nil, rarity, pack_type_seed_id)
 
     if resample_count > 0 then
-        center = pseudorandom_element(_pool, pseudoseed(_pool_key .. '_resample' .. (resample_count + 1))) --
+        center = optimised_pseudorandom_element(_pool, optimised_pseudoseed(_pool_key .. '_resample' .. (resample_count + 1))) --
     else
-        center = pseudorandom_element(_pool, pseudoseed(_pool_key))
+        center = optimised_pseudorandom_element(_pool, optimised_pseudoseed(_pool_key))
     end
 
     return G.P_CENTERS[center].name
@@ -74,7 +74,7 @@ function find_legendary_in_pack(pack_type, pack_size)
     local legendary = nil
 
     for _ = 1, pack_size do
-        if pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
+        if optimised_pseudorandom('soul_' .. pack_type .. G.GAME.round_resets.ante) > 0.997 then
             legendary = find_next_card('Joker', 'sou', 0)
         end
     end
@@ -91,7 +91,7 @@ function are_legendaries_found(legendaries, legendaries_min_tag, legendaries_max
 
         G.GAME.round_resets.ante = ante
 
-        local tag = get_next_tag_key()
+        local tag = optimised_get_next_tag_key()
 
         if tag_num >= legendaries_min_tag then
             local found_legendary = nil
@@ -189,7 +189,7 @@ function are_spectral_cards_found(spectral_cards, spectral_cards_min_tag, spectr
 
         G.GAME.round_resets.ante = ante
 
-        local tag = get_next_tag_key()
+        local tag = optimised_get_next_tag_key()
 
         if tag_num >= spectral_cards_min_tag then
             local found_spectral_cards = find_all_cards_in_next_pack('Spectral', 2, 'spe')
