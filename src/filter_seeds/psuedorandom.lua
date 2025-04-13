@@ -8,8 +8,7 @@ local char_set = {
 function optimised_random_string()
     local result = {}
     for i = 1, 8 do
-        local randIndex = math.random(1, 35)
-        result[i] = char_set[randIndex]
+        result[i] = char_set[math.random(35)]
     end
 
     return table.concat(result)
@@ -32,12 +31,13 @@ end
 
 function optimised_pseudoseed(key)
     if not G.GAME.pseudorandom[key] then
-        G.GAME.pseudorandom[key] = optimised_pseudohash(key .. (G.GAME.pseudorandom.seed or ''))
+        G.GAME.pseudorandom[key] = optimised_pseudohash(key .. G.GAME.pseudorandom.seed)
     end
 
-    G.GAME.pseudorandom[key] = math.abs(tonumber(string.format("%.13f",
-        (2.134453429141 + G.GAME.pseudorandom[key] * 1.72431234) % 1)))
-    return (G.GAME.pseudorandom[key] + (G.GAME.pseudorandom.hashed_seed or 0)) / 2
+    local val = (2.134453429141 + G.GAME.pseudorandom[key] * 1.72431234) % 1
+    G.GAME.pseudorandom[key] = math.floor(val * 1e13 + 0.5) / 1e13
+
+    return (G.GAME.pseudorandom[key] + G.GAME.pseudorandom.hashed_seed) / 2
 end
 
 function optimised_pseudorandom(seed)

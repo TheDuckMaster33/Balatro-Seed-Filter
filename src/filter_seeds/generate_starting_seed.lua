@@ -1,32 +1,7 @@
-local tag_to_ante = {
-    [1] = 1,
-    [2] = 1,
-    [3] = 2,
-    [4] = 2,
-    [5] = 3,
-    [6] = 3,
-    [7] = 4,
-    [8] = 4,
-    [9] = 5,
-    [10] = 5,
-    [11] = 6,
-    [12] = 6,
-    [13] = 7,
-    [14] = 7,
-    [15] = 8,
-    [16] = 8,
-}
-
 function satisfies_filter(filter)
-    if filter.type == "Legendary" then
+    if filter.type == "legendary" then
         for tag = filter.min_tag, filter.max_tag do
-            local ante = nil
-
-            if tag_to_ante[tag] then
-                ante = tag_to_ante[tag]
-            else
-                ante = math.floor((tag + 1) / 2)
-            end
+            local ante = math.floor((tag + 1) / 2)
 
             G.GAME.round_resets.ante = ante
 
@@ -51,23 +26,48 @@ function satisfies_all_filters(filters)
     return true
 end
 
--- seen_pseudoseeds = {}
-
 function generate_filtered_starting_seed()
-    filters = {
-        {
-            type = 'Legendary',
-            name = 'Any',
-            min_tag = 1,
-            max_tag = 1,
-        },
-        {
-            type = 'Legendary',
-            name = 'Any',
-            min_tag = 2,
-            max_tag = 6,
-        }
-    }
+    filter_yaml = [[
+        Legendary:
+            - name: Any
+    ]]
+
+    filter_query, err = parse_yaml(filter_yaml)
+
+    if err then 
+        return
+    end 
+
+    for key, val in pairs(filter_query[1]) do
+        print(key)
+        print(val)
+    end
+
+    filters, err = validate_query(filter_query)
+
+    if err then 
+        return 
+    end 
+
+    for key, val in pairs(filters[1]) do
+        print(key)
+        print(val)
+    end
+
+    -- filters = {
+    --     {
+    --         type = 'legendary',
+    --         name = 'any',
+    --         min_tag = 1,
+    --         max_tag = 2,
+    --     },
+    --     {
+    --         type = 'legendary',
+    --         name = 'any',
+    --         min_tag = 2,
+    --         max_tag = 6,
+    --     },
+    -- }
 
     local counter = 1
 

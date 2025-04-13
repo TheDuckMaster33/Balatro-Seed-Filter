@@ -1,5 +1,7 @@
 original_love_draw = love.draw
 
+InputField = SMODS.load_file("src/UI/input_field.lua")()
+
 love.keyboard.setKeyRepeat(true)
 
 local new_filter_criteria = {}
@@ -266,9 +268,7 @@ function tab_definition_function()
         }),
     }
 
-    -- should_draw_seed_filter_textbox_fun()
-
-    
+    should_draw_seed_filter_textbox_fun()
     -- G.UIDEF.settings_tab('Game')
 
     return seed_filter_ui
