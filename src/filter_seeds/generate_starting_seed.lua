@@ -1,13 +1,24 @@
+package.path = package.path .. ';../?.lua'
+
+require("filter_seeds.find_next_card")
+require("filter_seeds.pseudorandom")
+require("query_parser.query_parser")
+
+current_ante = nil
+pseudorandom = nil
+pseudorandom_seed = nil
+pseudorandom_hashed_seed = nil
+
 function satisfies_filter(filter)
     if filter.type == "legendary" then
         for tag = filter.min_tag, filter.max_tag do
             local ante = math.floor((tag + 1) / 2)
 
-            G.GAME.round_resets.ante = ante
+            current_ante = ante
 
             local is_second_tag_in_ante = (tag % 2 == 0)
 
-            if find_legendary(is_second_tag_in_ante) then
+            if find_legendary(ante, is_second_tag_in_ante, filter.name) then
                 return true
             end
         end
@@ -27,47 +38,23 @@ function satisfies_all_filters(filters)
 end
 
 function generate_filtered_starting_seed()
-    filter_yaml = [[
-        Legendary:
-            - name: Any
-    ]]
+    local file = io.open("../../filters/filter.sf", "r")
 
-    filter_query, err = parse_yaml(filter_yaml)
-
-    if err then 
-        return
-    end 
-
-    for key, val in pairs(filter_query[1]) do
-        print(key)
-        print(val)
+    if not file then
+        print("File could not be opened")
+        return nil
     end
 
-    filters, err = validate_query(filter_query)
+    local filter_string = file:read("*all")
 
-    if err then 
-        return 
-    end 
+    file:close()
 
-    for key, val in pairs(filters[1]) do
-        print(key)
-        print(val)
+    local filter_query, err = parse_yaml(filter_string)
+
+    if err then
+        print(err)
+        return nil
     end
-
-    -- filters = {
-    --     {
-    --         type = 'legendary',
-    --         name = 'any',
-    --         min_tag = 1,
-    --         max_tag = 2,
-    --     },
-    --     {
-    --         type = 'legendary',
-    --         name = 'any',
-    --         min_tag = 2,
-    --         max_tag = 6,
-    --     },
-    -- }
 
     local counter = 1
 
@@ -78,16 +65,17 @@ function generate_filtered_starting_seed()
 
         local seed = optimised_random_string()
 
-        G.GAME.pseudorandom = {}
-        G.GAME.pseudorandom.seed = seed
-        G.GAME.pseudorandom.hashed_seed = optimised_pseudohash(seed)
+        current_ante = 1
+        pseudorandom = {}
+        pseudorandom_seed = seed
+        pseudorandom_hashed_seed = optimised_pseudohash(seed)
 
-        G.GAME.round_resets.ante = 1
-
-        if satisfies_all_filters(filters) then
+        if satisfies_all_filters(filter_query) then
             return seed
         end
 
         counter = counter + 1
     end
 end
+
+generate_filtered_starting_seed()

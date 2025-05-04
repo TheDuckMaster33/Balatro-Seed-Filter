@@ -30,14 +30,14 @@ function optimised_pseudohash(str)
 end
 
 function optimised_pseudoseed(key)
-    if not G.GAME.pseudorandom[key] then
-        G.GAME.pseudorandom[key] = optimised_pseudohash(key .. G.GAME.pseudorandom.seed)
+    if not pseudorandom[key] then
+        pseudorandom[key] = optimised_pseudohash(key .. pseudorandom_seed)
     end
 
-    local val = (2.134453429141 + G.GAME.pseudorandom[key] * 1.72431234) % 1
-    G.GAME.pseudorandom[key] = math.floor(val * 1e13 + 0.5) / 1e13
+    local val = (2.134453429141 + pseudorandom[key] * 1.72431234) % 1
+    pseudorandom[key] = math.floor(val * 1e13 + 0.5) / 1e13
 
-    return (G.GAME.pseudorandom[key] + G.GAME.pseudorandom.hashed_seed) / 2
+    return (pseudorandom[key] + pseudorandom_hashed_seed) / 2
 end
 
 function optimised_pseudorandom(seed)

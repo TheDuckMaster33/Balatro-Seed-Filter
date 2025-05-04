@@ -1,3 +1,5 @@
+require("query_parser.validate_query")
+
 function generate_query_error(line, error_msg)
     return "Query line invalid:\n" ..
         line ..
@@ -102,7 +104,9 @@ function parse_yaml(yaml_string)
         end
     end
 
-    return filter_query, nil
+    local filter_query, err = validate_query(filter_query) 
+
+    return filter_query, err
 end
 
 -- function parse_yaml(yaml_string)

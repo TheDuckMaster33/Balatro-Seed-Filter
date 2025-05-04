@@ -17,7 +17,13 @@ function validate_query(filter_query)
         -- for key, val in pairs(query_entry) do validated_query_entry[key] = val end
 
         validated_query_entry["type"] = query_entry["type"]
-        validated_query_entry["name"] = query_entry["name"] or "any"
+
+        if not query_entry["name"] then
+            return nil, "Please provide names for all legendaries (or 'Any' for any legendary joker)"
+        end
+
+        validated_query_entry["name"] = query_entry["name"]
+
 
         local min_ante = query_entry["min_ante"] or 0
         local max_ante = query_entry["max_ante"] or min_ante

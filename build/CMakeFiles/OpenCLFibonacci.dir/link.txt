@@ -1,0 +1,1 @@
+/usr/bin/c++ -Wl,--dependency-file=CMakeFiles/OpenCLFibonacci.dir/link.d CMakeFiles/OpenCLFibonacci.dir/backend/main.cpp.o -o OpenCLFibonacci  /usr/lib64/libOpenCL.so
